@@ -6,7 +6,7 @@ from typing import Optional
 from logger import logger
 from market_data import get_current_price
 from account import get_account_info
-from orders import place_buy_order, place_sell_order, check_order_status
+from orders import OrderResult, place_buy_order, place_sell_order, check_order_status
 import config
 
 
@@ -55,8 +55,13 @@ class Trader:
         )
 
         # 주문 가격 계산
-        buy_price = current_price - self.buy_offset
-        sell_price = current_price + self.sell_offset
+        if config.USE_CURRENT_PRICE_FOR_TEST:
+            buy_price = current_price
+            sell_price = current_price
+            logger.info("테스트 모드: 현재가로 매수/매도 주문을 시도합니다")
+        else:
+            buy_price = current_price - self.buy_offset
+            sell_price = current_price + self.sell_offset
 
         logger.info(f"주문 가격 설정: 매수={buy_price} KRW, 매도={sell_price} KRW")
 
@@ -75,22 +80,42 @@ class Trader:
             # 4. 매수 후 계좌 상태 확인
             account_after_buy = get_account_info()
             if account_after_buy:
-                logger.info(f"매수 후 상태: 현금={account_after_buy.cash_balance}, 보유={account_after_buy.holdings}")
+                logger.info(
+                    f"매수 후 상태: 현금={account_after_buy.cash_balance}, 보유={account_after_buy.holdings}, "
+                    f"매도 가능={account_after_buy.sellable_holdings}"
+                )
+            else:
+                account_after_buy = None
 
         # 5. 매도 주문
-        sell_result = place_sell_order(
-            stock_code=self.stock_code,
-            price=sell_price,
-            quantity=self.order_quantity
-        )
+        sell_result = OrderResult()
+        sellable_qty = 0
+        if account_after_buy:
+            sellable_qty = account_after_buy.sellable_holdings.get(self.stock_code, 0)
 
-        if not sell_result.success:
-            logger.warning(f"매도 주문 실패: {sell_result.message}")
+        if sellable_qty <= 0:
+            sell_result.success = False
+            sell_result.message = (
+                f"매도 불가: 매도 가능 수량이 없습니다 (available={sellable_qty})"
+            )
+            logger.warning(sell_result.message)
         else:
-            # 6. 매도 후 계좌 상태 확인
-            account_after_sell = get_account_info()
-            if account_after_sell:
-                logger.info(f"매도 후 상태: 현금={account_after_sell.cash_balance}, 보유={account_after_sell.holdings}")
+            sell_result = place_sell_order(
+                stock_code=self.stock_code,
+                price=sell_price,
+                quantity=min(self.order_quantity, sellable_qty)
+            )
+
+            if not sell_result.success:
+                logger.warning(f"매도 주문 실패: {sell_result.message}")
+            else:
+                # 6. 매도 후 계좌 상태 확인
+                account_after_sell = get_account_info()
+                if account_after_sell:
+                    logger.info(
+                        f"매도 후 상태: 현금={account_after_sell.cash_balance}, 보유={account_after_sell.holdings}, "
+                        f"매도 가능={account_after_sell.sellable_holdings}"
+                    )
 
         # 7. 주문 상태 확인
         order_status = check_order_status(stock_code=self.stock_code)
