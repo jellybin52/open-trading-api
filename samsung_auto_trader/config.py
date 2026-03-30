@@ -8,11 +8,11 @@ KIS_VIRTUAL_BASE_URL = "https://openapivts.koreainvestment.com:29443"  # 모의 
 
 # Endpoints
 AUTH_ENDPOINT = "/oauth2/tokenP"
-PRICE_ENDPOINT = "/uapi/domestic-stock/v1/quotations/search-price"
+PRICE_ENDPOINT = "/uapi/domestic-stock/v1/quotations/inquire-price"
 HOLDINGS_ENDPOINT = "/uapi/domestic-stock/v1/trading/inquire-balance"
 BUY_ORDER_ENDPOINT = "/uapi/domestic-stock/v1/trading/order-cash"
 SELL_ORDER_ENDPOINT = "/uapi/domestic-stock/v1/trading/order-cash"
-ORDER_STATUS_ENDPOINT = "/uapi/domestic-stock/v1/trading/inquire-daily-orderlist"
+ORDER_STATUS_ENDPOINT = "/uapi/domestic-stock/v1/trading/inquire-daily-ccld"
 
 # Trading Configuration
 TARGET_STOCK = "005930"  # Samsung Electronics

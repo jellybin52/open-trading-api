@@ -23,14 +23,21 @@ def get_current_price(stock_code: str = config.TARGET_STOCK) -> Optional[int]:
     try:
         token = get_auth_token()
 
+        app_key = os.getenv('GH_APPKEY')
+        app_secret = os.getenv('GH_APPSECRET')
+
         headers = {
             "Content-Type": "application/json",
-            "Authorization": f"Bearer {token}",
+            "authorization": f"Bearer {token}",
+            "appKey": app_key,
+            "appSecret": app_secret,
+            "tr_id": "FHKST01010100",
+            "custtype": "P",
         }
 
         params = {
-            "fid_cond_mrkt_div_code": "J",  # 국내 주식
-            "fid_input_iscd": stock_code,
+            "FID_COND_MRKT_DIV_CODE": "J",  # 국내 주식
+            "FID_INPUT_ISCD": stock_code,
         }
 
         logger.debug(f"주가 조회: {stock_code}")
