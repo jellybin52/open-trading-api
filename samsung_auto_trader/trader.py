@@ -49,7 +49,10 @@ class Trader:
             logger.error("계좌 조회 실패, 거래 사이클 취소")
             return False
 
-        logger.info(f"거래 전 상태: 현금={account_before.cash_balance}, 보유={account_before.holdings}")
+        logger.info(
+            f"거래 전 상태: 현금={account_before.cash_balance}, 보유={account_before.holdings}, "
+            f"보유가치={account_before.total_holdings_value}, 총자산={account_before.total_value}"
+        )
 
         # 주문 가격 계산
         buy_price = current_price - self.buy_offset

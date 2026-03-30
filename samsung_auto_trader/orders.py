@@ -3,6 +3,7 @@
 """
 
 from typing import Optional, Dict
+from datetime import datetime
 from logger import logger
 from api_client import api_client
 from auth import get_auth_token
@@ -100,9 +101,16 @@ def _place_order(
             logger.error(result.message)
             return result
 
+        app_key = os.getenv('GH_APPKEY')
+        app_secret = os.getenv('GH_APPSECRET')
+
         headers = {
             "Content-Type": "application/json",
-            "Authorization": f"Bearer {token}",
+            "authorization": f"Bearer {token}",
+            "appKey": app_key,
+            "appSecret": app_secret,
+            "tr_id": "VTTC0802U" if order_type == "BUY" else "VTTC0801U",
+            "custtype": "P",
         }
 
         # 주문 방향 코드
@@ -111,11 +119,12 @@ def _place_order(
         body = {
             "CANO": account_number,
             "ACNT_PRDT_CD": "01",
-            "ORDR_DVSN_CD": "00",  # 지정가
             "PDNO": stock_code,
+            "ORD_DVSN": "00",  # 주문 구분 00: 지정가
             "ORD_QTY": str(quantity),
             "ORD_UNPR": str(price),
-            "ORD_DVSN": order_direction,  # 01: 매수, 02: 매도
+            "EXCG_ID_DVSN_CD": "KRX",
+            "SLL_TYPE": "01" if order_type == "SELL" else "",
         }
 
         logger.info(
@@ -132,7 +141,10 @@ def _place_order(
         # NOTE: 정확한 필드명은 API 응답 구조에 따라 조정 필요
         if response.get('rt_cd') == '0':  # 성공
             result.success = True
-            result.order_id = response.get('output', {}).get('ODNO')  # 주문 번호
+            output_data = response.get('output') or response.get('output1') or response.get('output2') or {}
+            if isinstance(output_data, list):
+                output_data = output_data[0] if output_data else {}
+            result.order_id = output_data.get('ODNO') or output_data.get('od_no') or output_data.get('ORD_NO')
             result.message = "주문 접수 성공"
             result.details = response
             logger.info(f"{order_type} 주문 접수: 주문번호 = {result.order_id}")
@@ -177,27 +189,35 @@ def check_order_status(
         if not stock_code:
             stock_code = config.TARGET_STOCK
 
+        app_key = os.getenv('GH_APPKEY')
+        app_secret = os.getenv('GH_APPSECRET')
+
         headers = {
             "Content-Type": "application/json",
-            "Authorization": f"Bearer {token}",
+            "authorization": f"Bearer {token}",
+            "appKey": app_key,
+            "appSecret": app_secret,
+            "tr_id": "VTTC8001R",
+            "custtype": "P",
         }
 
+        today = datetime.today().strftime("%Y%m%d")
         params = {
             "CANO": account_number,
             "ACNT_PRDT_CD": "01",
-            "INQR_DVSN_1": "0",
-            "INQR_DVSN_2": "0",
-            "ORD_GBN_CODE": "",
+            "INQR_STRT_DT": today,
+            "INQR_END_DT": today,
+            "SLL_BUY_DVSN_CD": "00",
+            "CCLD_DVSN": "00",
+            "INQR_DVSN": "01",
+            "INQR_DVSN_3": "00",
             "PDNO": stock_code,
-            "ORD_SQN": "",
-            "ORD_STAT_CODE": "00",
-            "SORT_SQN": "D",
-            "QUERY_STR": "0",
-            "REAL_CPRI_DVSN_CD": "01",
-            "OVRS_EXCG_CODE": "",
-            "TR_CRCY_CODE": "",
+            "ORD_GNO_BRNO": "",
+            "ODNO": "",
+            "INQR_DVSN_1": "",
             "CTX_AREA_FK100": "",
             "CTX_AREA_NK100": "",
+            "EXCG_ID_DVSN_CD": "KRX",
         }
 
         logger.debug(f"주문 상태 조회: {stock_code}")
@@ -208,14 +228,16 @@ def check_order_status(
         )
 
         # 응답에서 주문 정보 추출
-        # NOTE: 정확한 필드명은 API 응답 구조에 따라 조정 필요
-        orders = response.get('output', [])
+        orders = response.get('output1') or response.get('output') or response.get('output2') or []
+        if isinstance(orders, dict):
+            orders = [orders]
+
         if orders:
             logger.info(f"최근 주문 상태: {len(orders)}개 주문 조회됨")
             return orders
         else:
             logger.info("최근 주문이 없습니다")
-            return None
+            return []
 
     except Exception as e:
         logger.error(f"주문 상태 조회 실패: {e}")
