@@ -19,6 +19,7 @@ TARGET_STOCK = "005930"  # Samsung Electronics
 BUY_OFFSET = 2000  # Buy at current_price - 2000 KRW
 SELL_OFFSET = 2000  # Sell at current_price + 2000 KRW
 DEFAULT_ORDER_QUANTITY = 1  # Number of shares per order
+USE_CURRENT_PRICE_FOR_TEST = False  # 기본 거래 전략 사용
 
 # Trading Window (in 24-hour format)
 TRADING_START_HOUR = 9

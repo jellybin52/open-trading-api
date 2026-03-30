@@ -16,6 +16,7 @@ class AccountInfo:
     def __init__(self):
         self.cash_balance: Optional[int] = None
         self.holdings: Dict[str, int] = {}  # {주식코드: 수량}
+        self.sellable_holdings: Dict[str, int] = {}  # {주식코드: 매도 가능 수량}
         self.holding_values: Dict[str, int] = {}  # {주식코드: 평가액}
         self.total_holdings_value: Optional[int] = None
         self.total_value: Optional[int] = None
@@ -24,7 +25,8 @@ class AccountInfo:
     def __repr__(self) -> str:
         return (
             f"AccountInfo(cash={self.cash_balance}, total_holdings_value={self.total_holdings_value}, "
-            f"total_value={self.total_value}, holdings={self.holdings})"
+            f"total_value={self.total_value}, holdings={self.holdings}, "
+            f"sellable={self.sellable_holdings})"
         )
 
 
@@ -122,6 +124,7 @@ def get_account_info() -> Optional[AccountInfo]:
 
             stock_code = holding.get('pdno') or holding.get('pdno_code') or holding.get('stck_iscd')
             quantity = holding.get('hldg_qty') or holding.get('hldg_qty_sum') or holding.get('hldg_qty')
+            sellable = holding.get('ord_psbl_qty') or holding.get('ord_psbl_qty_sum')
             value = holding.get('evlu_amt') or holding.get('pchs_amt') or holding.get('tot_evlu_amt')
 
             if stock_code and quantity is not None:
@@ -132,6 +135,13 @@ def get_account_info() -> Optional[AccountInfo]:
                 except (TypeError, ValueError):
                     logger.warning(f"보유 수량 변환 실패: {quantity} for {stock_code}")
                     continue
+
+                try:
+                    sellable_int = int(sellable) if sellable is not None else 0
+                except (TypeError, ValueError):
+                    logger.warning(f"매도 가능 수량 변환 실패: {sellable} for {stock_code}")
+                    sellable_int = 0
+                account_info.sellable_holdings[stock_code] = sellable_int
 
                 if value is not None:
                     try:
